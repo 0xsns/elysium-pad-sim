@@ -2,12 +2,12 @@
   "name": "elysium-pad-sim",
   "version": "1.0.0",
   "private": true,
-  "description": "Paper-trading simulator for Elysium launchpads (Montra / Ascend / Volta) — $10 notional, live pool prices",
+  "description": "Paper-trading simulator for Elysium launchpads (Montra / Ascend / Volta) \u2014 $10 notional, live pool prices",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "sim": "node scripts/sim-cli.mjs"
+    "sim": "node scripts/run-sim.mjs"
   },
   "dependencies": {
     "next": "14.2.15",

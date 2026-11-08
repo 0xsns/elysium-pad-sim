@@ -7,3 +7,4 @@ out/
 scripts/raw_candles.json
 scripts/candles.json
 scripts/tokens_real.json
+.env*
