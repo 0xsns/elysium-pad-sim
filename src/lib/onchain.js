@@ -60,19 +60,30 @@ let poolCache = { at: 0, map: new Map() };
 /** poolId -> { symbol, addr, isToken0, launchpad }, cached briefly. */
 export async function poolMap({ maxAgeMs = 120000 } = {}) {
   if (Date.now() - poolCache.at < maxAgeMs && poolCache.map.size) return poolCache.map;
-  const url = `${INDEXER}/ely_tokens?select=address,symbol,pool,launchpad,token_is0&order=vol24_hype.desc&limit=1000`;
-  const res = await fetch(url, { headers: { accept: "application/json" } });
-  if (!res.ok) throw new Error(`indexer HTTP ${res.status}`);
-  const rows = await res.json();
+  // Two slices, because either one alone leaves holes:
+  //   - busiest coins: most of the volume on the tape
+  //   - newest coins: a launch trades seconds after it exists, long before it has volume,
+  //     so a volume-ordered list misses exactly the trades a launch scanner cares about.
+  const sel = "address,symbol,pool,launchpad,token_is0";
+  const urls = [
+    `${INDEXER}/ely_tokens?select=${sel}&order=vol24_hype.desc&limit=1000`,
+    `${INDEXER}/ely_tokens?select=${sel}&order=created_at.desc&limit=600`,
+  ];
+  const results = await Promise.all(
+    urls.map((u) => fetch(u, { headers: { accept: "application/json" } }).then((r) => (r.ok ? r.json() : []))),
+  );
   const map = new Map();
-  for (const r of rows) {
-    if (!r.pool) continue;
-    map.set(String(r.pool).toLowerCase(), {
-      symbol: r.symbol,
-      addr: String(r.address).toLowerCase(),
-      isToken0: r.token_is0 === true,
-      launchpad: r.launchpad,
-    });
+  for (const rows of results) {
+    if (!Array.isArray(rows)) continue;
+    for (const r of rows) {
+      if (!r.pool) continue;
+      map.set(String(r.pool).toLowerCase(), {
+        symbol: r.symbol,
+        addr: String(r.address).toLowerCase(),
+        isToken0: r.token_is0 === true,
+        launchpad: r.launchpad,
+      });
+    }
   }
   poolCache = { at: Date.now(), map };
   return map;
