@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { scanMarket, deepScan, RULES } from "@/lib/scan";
 import { buyScore } from "@/lib/rugged";
+import { useLiveFeed } from "@/lib/useLiveFeed";
+import { FeedHealth, TradeTape, Newborns } from "@/components/live";
 import {
   fmtUsd,
   fmtPrice,
@@ -18,7 +20,7 @@ import {
   ScoreRing,
 } from "@/components/viz";
 
-const POLL_MS = 60_000;
+const POLL_MS = 15_000; // deep scan cadence; the live tab updates far faster
 
 export default function Cockpit() {
   const [scan, setScan] = useState(null);
@@ -33,6 +35,10 @@ export default function Cockpit() {
   const [ageTick, setAgeTick] = useState(0);
   const [maxScan, setMaxScan] = useState(10);
   const inflight = useRef(false);
+
+  // live feeds: trade tape 2s, price pulse 3s, newborns 5s
+  const live = useLiveFeed({ enabled: true });
+  const [liveSym, setLiveSym] = useState({});
 
   const run = useCallback(
     async (opts = {}) => {
@@ -88,6 +94,23 @@ export default function Cockpit() {
     }
   };
 
+  // symbol lookup for the live tape (ranked coins + newborns)
+  useEffect(() => {
+    const m = {};
+    for (const r of scan?.ranked ?? []) m[String(r.addr).toLowerCase()] = r.sym;
+    for (const r of live.newborn ?? []) m[String(r.address).toLowerCase()] = r.symbol;
+    if (Object.keys(m).length) setLiveSym(m);
+  }, [scan, live.newborn]);
+
+  // clicking a row in the tape/newborns focuses that coin
+  const pickLive = (addr) => {
+    const row = (scan?.ranked ?? []).find((r) => String(r.addr).toLowerCase() === addr);
+    if (row) {
+      openDetail(row);
+      setTab("detail");
+    }
+  };
+
   const picks = scan?.recommended ?? [];
   const ranked = scan?.ranked ?? [];
   const watch = scan?.watchlist ?? [];
@@ -108,13 +131,14 @@ export default function Cockpit() {
             />
             <h1 className="text-[18px] font-semibold tracking-tight text-white">Elysium Rug Cockpit</h1>
             <span className="rounded border hair px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-dim">
-              {auto ? `live · ${POLL_MS / 1000}s` : "paused"}
+              {auto ? `scan ${POLL_MS / 1000}s · feed 1s` : "scan paused"}
             </span>
           </div>
           <p className="mt-1 max-w-2xl text-[11.5px] leading-relaxed text-dim">
             Bot scan launchpad Elysium terus-terusan: rug check, bundle, distribusi holder, momentum, lalu kasih daftar
-            coin yang <span className="text-white">lolos semua filter</span> buat lu beli manual. Semua angka dari
-            ElyScreener API live — yang nggak bisa dihitung ditampilkan &quot;-&quot;, bukan dikarang.
+            coin yang <span className="text-white">lolos semua filter</span> buat lu beli manual. Trade tape dibaca
+            langsung dari chain (node.eleos.fun) tiap 1 detik, data 3-7 detik; angka yang nggak bisa dihitung
+            ditampilkan &quot;-&quot;, bukan dikarang.
           </p>
         </div>
 
@@ -146,6 +170,10 @@ export default function Cockpit() {
           </button>
         </div>
       </header>
+
+      <div className="mt-2">
+        <FeedHealth health={live.health} now={live.now} />
+      </div>
 
       {progress && (
         <div className="mt-2 text-[10px] text-teal">
@@ -188,6 +216,7 @@ export default function Cockpit() {
           ["picks", `Rekomendasi (${picks.length})`],
           ["all", `Semua dianalisa (${ranked.length})`],
           ["watch", `Belum 5 menit (${watch.length})`],
+          ["live", "Live"],
           ["detail", active ? `Detail: ${active.sym}` : "Detail"],
         ].map(([k, label]) => (
           <button
@@ -221,15 +250,27 @@ export default function Cockpit() {
         <div>
           {tab === "picks" && (
             <>
-              <PicksTable rows={picks} onSelect={openDetail} sel={sel} ageTick={ageTick} />
+              <PicksTable rows={picks} onSelect={openDetail} sel={sel} ageTick={ageTick} prices={live.prices} />
               <p className="mt-1.5 text-[9.5px] leading-relaxed text-dim">
                 * liq est = porsi supply yang ada di pool x market cap. Perkiraan, bukan reserve pool yang dikutip
                 langsung — dipakai buat nimbang apakah posisi lu kebesaran.
               </p>
             </>
           )}
-          {tab === "all" && <PicksTable rows={ranked} onSelect={openDetail} sel={sel} ageTick={ageTick} showReason />}
+          {tab === "all" && <PicksTable rows={ranked} onSelect={openDetail} sel={sel} ageTick={ageTick} showReason prices={live.prices} />}
           {tab === "watch" && <WatchTable rows={watch} onSelect={openDetail} ageTick={ageTick} />}
+          {tab === "live" && (
+            <div className="space-y-2">
+              <FeedHealth health={live.health} now={live.now} />
+              <section className="rounded-lg border hair bg-panel/60">
+                <div className="flex items-center justify-between border-b hair px-2 py-1.5">
+                  <span className="text-[10px] text-dim">trade tape · semua coin, terbaru di atas</span>
+                  <span className="text-[9px] text-teal">{live.trades.length} print di buffer</span>
+                </div>
+                <TradeTape trades={live.trades} prices={live.prices} symbols={liveSym} onPick={pickLive} now={live.now} />
+              </section>
+            </div>
+          )}
           {tab === "detail" && (
             <DetailPanel row={active} detail={detail} loading={detailBusy} onRefresh={() => active && openDetail(active)} />
           )}
@@ -275,6 +316,14 @@ export default function Cockpit() {
               <li>Harga di grafik = harga trade asli (HYPE), bukan candle sintetis.</li>
               <li className="text-coral">Panel ini nggak bisa beli apa-apa. Nggak ada wallet, nggak ada key.</li>
             </ul>
+          </section>
+
+          <section className="rounded-lg border hair bg-panel/60 p-2.5">
+            <div className="mb-1 flex items-center justify-between">
+              <h2 className="text-[11px] font-medium text-white">Launch terbaru</h2>
+              <span className="text-[8.5px] text-teal">5s</span>
+            </div>
+            <Newborns rows={live.newborn} now={live.now} onPick={pickLive} />
           </section>
 
           {scan?.established?.length ? (
@@ -330,7 +379,7 @@ function Kpi({ label, value, sub, accent }) {
   );
 }
 
-function PicksTable({ rows, onSelect, sel, ageTick, showReason }) {
+function PicksTable({ rows, onSelect, sel, ageTick, showReason, prices }) {
   if (!rows?.length) {
     return (
       <div className="rounded-lg border hair bg-panel/40 p-6 text-center">
@@ -349,6 +398,11 @@ function PicksTable({ rows, onSelect, sel, ageTick, showReason }) {
         const m = r.mom || {};
         const l = r.liquidity || {};
         const agg = r.ageMin != null ? r.ageMin + (ageTick * 10) / 60 : null;
+        // live pulse overrides the scan-time snapshot when the coin is in the feed
+        const lv = prices?.[String(r.addr).toLowerCase()];
+        const price = lv?.price ?? r.priceUsd;
+        const mcap = lv?.mcap ?? r.mcap;
+        const chg = lv?.chg24 ?? r.chg24;
         return (
           <button
             key={r.addr}
@@ -382,14 +436,14 @@ function PicksTable({ rows, onSelect, sel, ageTick, showReason }) {
                 </div>
 
                 <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-0.5 text-[10.5px] sm:grid-cols-4">
-                  <Cell k="harga" v={fmtPrice(r.priceUsd)} />
-                  <Cell k="mcap" v={fmtUsd(r.mcap)} />
+                  <Cell k="harga" v={<span className={lv ? "text-teal" : ""}>{fmtPrice(price)}</span>} />
+                  <Cell k="mcap" v={fmtUsd(mcap)} />
                   <Cell k="liq est*" v={fmtUsd(r.liquidityUsd)} />
                   <Cell k="vol 24j" v={fmtUsd(r.vol24)} />
                   <Cell k="holder" v={fmtNum(r.holders)} />
                   <Cell k="top10" v={<span className={l.top10ExPoolPct > 40 ? "text-amber" : "text-white"}>{l.top10ExPoolPct != null ? `${l.top10ExPoolPct}%` : "-"}</span>} />
                   <Cell k="buyer/win" v={fmtNum(r.buyers)} />
-                  <Cell k="24j" v={<span className={tone(r.chg24)}>{fmtPct(r.chg24)}</span>} />
+                  <Cell k="24j" v={<span className={tone(chg)}>{fmtPct(chg)}</span>} />
                 </div>
 
                 <div className="mt-1 flex items-center justify-between gap-2">

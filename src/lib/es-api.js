@@ -20,6 +20,17 @@ export const ENDPOINTS = {
   devSells: (h = 24) => `${BASE}/rpc/es_dev_sells?p_hours=${h}`,
   padTotals: () => `${BASE}/rpc/es_pad_totals`,
   hype: () => `${BASE}/ely_meta?select=v&k=eq.hype_usd&limit=1`,
+
+  // --- live feeds: the same queries ElyScreener's own UI runs (verified in app.js) ---
+  // trade tape, their cadence is 2s
+  liveTrades: (lim = 60) =>
+    `${BASE}/ely_trades?select=token,side,hype,at,price_hype,trader&order=at.desc&limit=${lim}`,
+  // price/mcap/volume pulse for the busiest coins, their cadence is 2.5s (150 rows)
+  pulse: () =>
+    `${BASE}/ely_tokens?select=address,price_hype,mcap_usd,vol24_hype,buys24,sells24,change24,holders,last_trade_at&order=vol24_hype.desc&limit=150`,
+  // newest coins, for catching a launch the minute it happens
+  newborn: (lim = 25) =>
+    `${BASE}/ely_tokens?select=address,symbol,launchpad,created_at,price_hype,mcap_usd,holders,vol24_hype&order=created_at.desc&limit=${lim}`,
 };
 
 const HDR = { Accept: "application/json" };
@@ -66,4 +77,9 @@ export const api = {
   smartWallets: (d, l) => getJson(ENDPOINTS.smartWallets(d, l)).catch(() => []),
   devSells: (h) => getJson(ENDPOINTS.devSells(h)).catch(() => []),
   padTotals: () => getJson(ENDPOINTS.padTotals()).catch(() => []),
+
+  // Live feed calls. They must never throw into the UI: a failed tick keeps the last value.
+  liveTrades: (lim) => getJson(ENDPOINTS.liveTrades(lim), { timeout: 8000 }).catch(() => null),
+  pulse: () => getJson(ENDPOINTS.pulse(), { timeout: 8000 }).catch(() => null),
+  newborn: (lim) => getJson(ENDPOINTS.newborn(lim), { timeout: 8000 }).catch(() => null),
 };
