@@ -11,7 +11,7 @@ module.exports = {
         mint: "#7dffb2",
         coral: "#ff5c72",
         amber: "#ffb020",
-        dim: "#6b8296",
+        dim: "#94aab8",
       },
       fontFamily: {
         mono: ["ui-monospace", "SFMono-Regular", "Menlo", "monospace"],

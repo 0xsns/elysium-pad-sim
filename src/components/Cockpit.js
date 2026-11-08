@@ -5,6 +5,7 @@ import { scanMarket, deepScan, RULES } from "@/lib/scan";
 import { buyScore } from "@/lib/rugged";
 import {
   fmtUsd,
+  fmtPrice,
   fmtPct,
   fmtNum,
   fmtAge,
@@ -131,7 +132,7 @@ export default function Cockpit() {
           <button
             onClick={() => setAuto((a) => !a)}
             className={`rounded border px-2.5 py-1.5 transition ${
-              auto ? "border-teal/40 text-teal" : "hair text-dim hover:text-white"
+              auto ? "hair text-dim hover:border-white/30 hover:text-white" : "border-teal/50 text-teal"
             }`}
           >
             {auto ? "pause" : "resume"}
@@ -218,7 +219,15 @@ export default function Cockpit() {
       {/* ---------- content ---------- */}
       <div className="mt-3 grid gap-3 lg:grid-cols-[1fr_340px]">
         <div>
-          {tab === "picks" && <PicksTable rows={picks} onSelect={openDetail} sel={sel} ageTick={ageTick} />}
+          {tab === "picks" && (
+            <>
+              <PicksTable rows={picks} onSelect={openDetail} sel={sel} ageTick={ageTick} />
+              <p className="mt-1.5 text-[9.5px] leading-relaxed text-dim">
+                * liq est = porsi supply yang ada di pool x market cap. Perkiraan, bukan reserve pool yang dikutip
+                langsung — dipakai buat nimbang apakah posisi lu kebesaran.
+              </p>
+            </>
+          )}
           {tab === "all" && <PicksTable rows={ranked} onSelect={openDetail} sel={sel} ageTick={ageTick} showReason />}
           {tab === "watch" && <WatchTable rows={watch} onSelect={openDetail} ageTick={ageTick} />}
           {tab === "detail" && (
@@ -226,10 +235,10 @@ export default function Cockpit() {
           )}
         </div>
 
-        <aside className="space-y-3">
+        <aside className="space-y-3 pb-6">
           <section className="rounded-lg border hair bg-panel/60 p-2.5">
             <h2 className="mb-1.5 text-[11px] font-medium text-white">Filter yang dipakai</h2>
-            <div className="space-y-0.5 text-[9.5px] text-dim">
+            <div className="space-y-0.5 text-[10.5px] text-dim">
               <div>umur minimal <span className="text-white">{RULES.minAgeMin} menit</span></div>
               <div>holder minimal <span className="text-white">{RULES.minHolders}</span></div>
               <div>top10 tanpa pool ≤ <span className="text-white">{RULES.maxTop10ExPool}%</span></div>
@@ -248,7 +257,7 @@ export default function Cockpit() {
 
           <section className="rounded-lg border hair bg-panel/60 p-2.5">
             <h2 className="mb-1.5 text-[11px] font-medium text-white">Cara baca</h2>
-            <ul className="space-y-1 text-[9.5px] leading-relaxed text-dim">
+            <ul className="space-y-1 text-[10.5px] leading-relaxed text-dim">
               <li>
                 <span className="text-white">Safety</span> = 0-100 dari distribusi holder, bundle, dev, likuiditas.
               </li>
@@ -299,7 +308,7 @@ export default function Cockpit() {
         </aside>
       </div>
 
-      <footer className="mt-6 border-t hair pt-2 text-[9px] leading-relaxed text-dim">
+      <footer className="mt-6 border-t hair pb-8 pt-2 text-[10px] leading-relaxed text-dim">
         Bukan saran finansial. Coin di daftar tetap bisa rug — filter ini cuma menyingkirkan pola paling jelas. Selalu
         cek sendiri sebelum beli, dan jangan pernah pakai ukuran posisi yang bikin sakit kalau nol.
       </footer>
@@ -349,11 +358,11 @@ function PicksTable({ rows, onSelect, sel, ageTick, showReason }) {
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                   <span className="truncate text-[12.5px] font-semibold text-white">{r.sym}</span>
-                  <span className="rounded bg-white/5 px-1 py-0.5 text-[8.5px] uppercase tracking-wide text-dim">
+                  <span className="rounded bg-white/10 px-1.5 py-0.5 text-[9px] uppercase tracking-wide text-white/70">
                     {r.pad}
                   </span>
                   {r.safetyScore != null && (
-                    <span className="text-[8.5px] text-dim">safety idx {r.safetyScore}</span>
+                    <span className="rounded bg-white/10 px-1 py-0.5 text-[9px] text-white/60">idx {r.safetyScore}</span>
                   )}
                   <span className={`text-[9px] ${m.trend === "up-strong" ? "text-mint" : m.trend === "up" ? "text-mint/80" : m.trend === "down" ? "text-coral" : "text-dim"}`}>
                     {m.trend}
@@ -361,10 +370,10 @@ function PicksTable({ rows, onSelect, sel, ageTick, showReason }) {
                   <span className="ml-auto text-[8.5px] text-dim">umur {fmtAge(agg)}</span>
                 </div>
 
-                <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-0.5 text-[9.5px] sm:grid-cols-4">
-                  <Cell k="harga" v={`$${r.priceUsd < 0.0001 ? r.priceUsd.toExponential(2) : r.priceUsd?.toFixed(5)}`} />
+                <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-0.5 text-[10.5px] sm:grid-cols-4">
+                  <Cell k="harga" v={fmtPrice(r.priceUsd)} />
                   <Cell k="mcap" v={fmtUsd(r.mcap)} />
-                  <Cell k="liq est" v={`${fmtUsd(r.liquidityUsd)}${r.liquidityIsEstimate ? "*" : ""}`} />
+                  <Cell k="liq est*" v={fmtUsd(r.liquidityUsd)} />
                   <Cell k="vol 24j" v={fmtUsd(r.vol24)} />
                   <Cell k="holder" v={fmtNum(r.holders)} />
                   <Cell k="top10" v={<span className={l.top10ExPoolPct > 40 ? "text-amber" : "text-white"}>{l.top10ExPoolPct != null ? `${l.top10ExPoolPct}%` : "-"}</span>} />
@@ -373,7 +382,7 @@ function PicksTable({ rows, onSelect, sel, ageTick, showReason }) {
                 </div>
 
                 <div className="mt-1 flex items-center justify-between gap-2">
-                  <div className="flex flex-wrap items-center gap-1.5 text-[9px] text-dim">
+                  <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-dim">
                     <span className="text-mint">buy {fmtNum(r.buys24)}</span>
                     <span className="text-coral">sell {fmtNum(r.sells24)}</span>
                     <span>· {m.signals?.[0] || "—"}</span>
@@ -468,7 +477,7 @@ function DetailPanel({ row, detail, loading, onRefresh }) {
           <div className="min-w-0">
             <div className="flex flex-wrap items-baseline gap-2">
               <h2 className="truncate text-[15px] font-semibold text-white">{d.sym}</h2>
-              <span className="rounded bg-white/5 px-1 py-0.5 text-[8.5px] uppercase text-dim">{d.pad}</span>
+              <span className="rounded bg-white/10 px-1.5 py-0.5 text-[9px] uppercase text-white/70">{d.pad}</span>
               <span className={`text-[9px] ${a.verdict === "AVOID" ? "text-coral" : "text-mint"}`}>{a.verdict}</span>
               {loading && <span className="text-[9px] text-teal">memuat ulang...</span>}
             </div>
@@ -494,9 +503,9 @@ function DetailPanel({ row, detail, loading, onRefresh }) {
 
         {/* numbers */}
         <div className="mt-2 grid grid-cols-3 gap-1.5 sm:grid-cols-6">
-          <Mini label="harga" value={`$${d.priceUsd < 0.0001 ? d.priceUsd?.toExponential(2) : d.priceUsd?.toFixed(5)}`} />
+          <Mini label="harga" value={fmtPrice(d.priceUsd)} />
           <Mini label="mcap" value={fmtUsd(d.mcap)} />
-          <Mini label="liq est" value={fmtUsd(d.liquidityUsd)} sub={l.poolSharePct != null ? `${l.poolSharePct}% supply di pool` : null} />
+          <Mini label="liq est*" value={fmtUsd(d.liquidityUsd)} sub={l.poolSharePct != null ? `${l.poolSharePct}% supply di pool` : null} />
           <Mini label="vol 24j" value={fmtUsd(d.vol24)} />
           <Mini label="holder" value={fmtNum(d.holders)} sub={`sample ${l.sampled ?? "-"}`} />
           <Mini label="24j" value={fmtPct(d.chg24)} accent={tone(d.chg24)} />

@@ -18,6 +18,17 @@ export const fmtPct = (v, d = 1) =>
 
 export const fmtNum = (v) => (v == null || Number.isNaN(Number(v)) ? "-" : Number(v).toLocaleString("en-US"));
 
+/** Prices: readable at every magnitude, never mixed styles in one column. */
+export const fmtPrice = (v) => {
+  if (v == null || Number.isNaN(Number(v))) return "-";
+  const n = Number(v);
+  if (n === 0) return "$0";
+  if (n < 0.00001) return `$${n.toExponential(2)}`;
+  if (n < 1) return `$${n.toFixed(6)}`;
+  if (n < 1000) return `$${n.toFixed(4)}`;
+  return `$${n.toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
+};
+
 export const fmtAge = (m) => {
   if (m == null || Number.isNaN(Number(m))) return "-";
   if (m < 60) return `${Math.round(m)}m`;
