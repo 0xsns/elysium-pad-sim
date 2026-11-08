@@ -48,13 +48,13 @@ export const PADS = [
     "blurb": "Uniswap v4 launches \u00b7 no bonding curve",
     "color": "#ffb020",
     "stats": {
-      "vol24": 2960000,
-      "trades24": 3200,
-      "holders": 3101,
-      "newToday": 60,
-      "alive24h": 5,
-      "creatorSold": 22,
-      "coins": 60
+      "vol24": 2110000,
+      "trades24": 12000,
+      "holders": 2507,
+      "newToday": 108,
+      "alive24h": 3,
+      "creatorSold": 7,
+      "coins": 596
     }
   },
   {

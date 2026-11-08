@@ -27,13 +27,13 @@ Ranked by 24h volume on ElyScreener, 2026-11-09:
 |---|---|---|---|---|---|
 | **Montra** | $5.94M | 48,300 | 9,163 | 3% | 3% |
 | **Ascend** | $5.35M | 32,200 | 7,436 | 12% | 16% |
-| **Volta** | $2.96M | 3,200 | 3,101 | 5% | 22% |
+| **Volta** | $2.11M | 12,000 | 2,507 | 3% | 7% |
 
 "A live after 24h" is the number that matters: on Montra **97 of every 100 new coins are dead within a day**. Median
 holders per new coin on Montra is **1**. Any strategy that buys a random new coin is fighting that base rate.
 
-Kleos, BOXA, ElysPump and Obol are all larger than Volta by some measures but ElyScreener does not publish a
-token→pad mapping for them, so attributing their tokens would have meant guessing. They are left out on purpose.
+Kleos ($737k/day), BOXA, ElysPump and Obol all trade real volume too, but ElyScreener does not publish a token→pad
+mapping for them, so attributing their tokens would have meant guessing. They are left out on purpose.
 
 ---
 
