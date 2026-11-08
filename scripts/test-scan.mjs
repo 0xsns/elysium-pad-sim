@@ -24,6 +24,12 @@ for (const c of r.ranked) {
     } devSold=${c.devSold} safety=${c.safetyScore}`,
   );
   if (a.fatalFails.length) console.log("      FATAL:", a.fatalFails.join(" | "));
+  const bc = a.checks.find((x) => x.id === "bundleSupply");
+  console.log(
+    `      bundle.raw clusters=${c.clusters ? c.clusters.clusters : "NULL"} holders=${c.clusters ? c.clusters.holders : "-"} pct=${
+      c.clusters ? c.clusters.clusterSupplyPct : "-"
+    } known=${a.clusterKnown} check=${bc ? JSON.stringify(bc.value) : "-"} pass=${bc ? bc.pass : "-"}`,
+  );
 }
 
 if (r.recommended.length) {

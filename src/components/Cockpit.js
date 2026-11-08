@@ -243,7 +243,11 @@ export default function Cockpit() {
               <div>holder minimal <span className="text-white">{RULES.minHolders}</span></div>
               <div>top10 tanpa pool ≤ <span className="text-white">{RULES.maxTop10ExPool}%</span></div>
               <div>holder terbesar ≤ <span className="text-white">{RULES.maxTop1ExPool}%</span></div>
-              <div>supply bundle ≤ <span className="text-white">{RULES.maxClusterSupplyPct}%</span></div>
+              <div>
+                supply bundle ≤ <span className="text-white">{RULES.maxClusterSupplyPct}%</span>{" "}
+                <span className="text-amber">(data sering kosong)</span>
+              </div>
+              <div>wallet ter-cluster ≤ <span className="text-white">{RULES.maxClusterWallets}</span></div>
               <div>dev belum jual <span className="text-white">wajib</span></div>
               <div>dev hold ≤ <span className="text-white">{RULES.maxDevPct}%</span></div>
               <div>likuiditas ≥ <span className="text-white">{fmtUsd(RULES.minLiquidityUsd)}</span></div>
@@ -367,7 +371,14 @@ function PicksTable({ rows, onSelect, sel, ageTick, showReason }) {
                   <span className={`text-[9px] ${m.trend === "up-strong" ? "text-mint" : m.trend === "up" ? "text-mint/80" : m.trend === "down" ? "text-coral" : "text-dim"}`}>
                     {m.trend}
                   </span>
-                  <span className="ml-auto text-[8.5px] text-dim">umur {fmtAge(agg)}</span>
+                  <span
+                      className={`rounded px-1 py-0.5 text-[8.5px] ${
+                        a.clusterKnown ? "bg-white/10 text-white/60" : "bg-amber/15 text-amber"
+                      }`}
+                    >
+                      {a.clusterKnown ? "bundle ok" : "bundle n/a"}
+                    </span>
+                    <span className="ml-auto text-[8.5px] text-dim">umur {fmtAge(agg)}</span>
                 </div>
 
                 <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-0.5 text-[10.5px] sm:grid-cols-4">
@@ -565,6 +576,13 @@ function DetailPanel({ row, detail, loading, onRefresh }) {
             </span>
           </div>
           <CheckList checks={a.checks} />
+          {!a.clusterKnown && (
+            <div className="mt-1 rounded bg-amber/10 px-1.5 py-1 text-[8.5px] leading-relaxed text-amber">
+              bundle <span className="font-semibold">tidak bisa diverifikasi</span> - indexer ElyScreener mengembalikan
+              nilai kosong untuk hampir semua coin. Tanda &quot;?&quot; berarti tidak diketahui, bukan aman. Pakai top10,
+              holder terbesar, dan jumlah wallet ter-cluster sebagai pengganti.
+            </div>
+          )}
           {a.passes && a.failures?.length > 0 && (
             <div className="mt-1 rounded bg-amber/10 px-1.5 py-1 text-[8.5px] leading-relaxed text-amber">
               Lolos aturan fatal, tapi ada catatan: {a.failures.join(" · ")}. Boleh dibeli dengan ukuran kecil, atau

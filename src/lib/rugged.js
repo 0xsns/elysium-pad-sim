@@ -7,6 +7,7 @@
 //   rather than passing silently.
 
 export const RULES = {
+  maxClusterWallets: 8,
   minAgeMin: 5,
   maxAgeMin: 240, // fresh window: 4 hours. Older coins are not a "new launch".
   minHolders: 25,
@@ -56,11 +57,45 @@ export function scoreToken(t, opts = {}) {
   add("holders", `holder >= ${R.minHolders}`, holders >= R.minHolders, holders, R.minHolders, 12, true);
   add("top10", `top10 tanpa pool <= ${R.maxTop10ExPool}%`, top10 != null && top10 <= R.maxTop10ExPool, top10, `${R.maxTop10ExPool}%`, 16, true);
   add("top1", `holder terbesar <= ${R.maxTop1ExPool}%`, top1 != null && top1 <= R.maxTop1ExPool, top1, `${R.maxTop1ExPool}%`, 8);
-  const clusterSupplyPct = num(t.clusters?.clusterSupplyPct);
-  add("bundleSupply", `supply bundle <= ${R.maxClusterSupplyPct}%`, clusterSupplyPct == null ? null : clusterSupplyPct <= R.maxClusterSupplyPct, clusterSupplyPct, `${R.maxClusterSupplyPct}%`, 16, true);
+  // The cluster endpoint almost never publishes a real supply percentage: it returns the
+  // sentinel 1e-25 for the overwhelming majority of coins, even ones whose holder
+  // concentration is 90-100%. Reading that sentinel as "0% bundled" made every new coin
+  // pass the bundle filter on missing data. So: anything at or below 1e-6 is UNKNOWN.
+  // Not a pass, not a fail - a hole we refuse to paper over.
+  const rawClusterPct = num(t.clusters?.clusterSupplyPct);
+  const clusterKnown = rawClusterPct != null && rawClusterPct > 1e-6;
+  const clusterSupplyPct = clusterKnown ? rawClusterPct : null;
+  add(
+    "bundleSupply",
+    `supply bundle <= ${R.maxClusterSupplyPct}%`,
+    clusterSupplyPct == null ? null : clusterSupplyPct <= R.maxClusterSupplyPct,
+    clusterSupplyPct,
+    clusterKnown ? `${R.maxClusterSupplyPct}%` : "indexer kosong",
+    16,
+    false,
+  );
+
+  // Real bundle signal we DO have: how many wallets the indexer grouped into clusters.
+  const clusterWalletsN = num(t.clusters?.clusterWallets);
+  add(
+    "bundleWallets",
+    `wallet ter-cluster <= ${R.maxClusterWallets}`,
+    clusterWalletsN == null ? null : clusterWalletsN <= R.maxClusterWallets,
+    clusterWalletsN,
+    `${R.maxClusterWallets} wallet`,
+    10,
+    false,
+  );
   add("bundlePct", "bundle bot <= 8% supply", botsPct == null ? null : botsPct <= 8, botsPct, "8%", 8);
   add("bundleWalletInfo", "wallet masuk bundle (info)", true, clusterWallets, "info", 0);
-  add("devHold", `dev hold <= ${R.maxDevPct}%`, devPct == null ? true : devPct <= R.maxDevPct, devPct, `${R.maxDevPct}%`, 6);
+  add(
+    "devHold",
+    `dev hold <= ${R.maxDevPct}%`,
+    devPct == null ? null : devPct <= R.maxDevPct,
+    devPct,
+    devPct == null ? "data dev tidak ada" : `${R.maxDevPct}%`,
+    6,
+  );
   add("devSold", "dev belum pernah jual", !devSold, devSellCount == null ? null : `${devSellCount} sell`, "0 sell", 12, true);
   add("liq", `likuiditas >= $${R.minLiquidityUsd}`, liqUsd != null && liqUsd >= R.minLiquidityUsd, liqUsd == null ? null : Math.round(liqUsd), `$${R.minLiquidityUsd}`, 8);
   add("vol", `volume >= $${R.minVolumeUsd}`, vol24 >= R.minVolumeUsd, Math.round(vol24), `$${R.minVolumeUsd}`, 5);
@@ -88,6 +123,7 @@ export function scoreToken(t, opts = {}) {
     failures: failures.map((f) => f.label),
     fatalFails: fatalFails.map((f) => f.label),
     unknown: unknown.map((f) => f.label),
+    clusterKnown,
     passes: fatalFails.length === 0 && score >= 75,
   };
 }
