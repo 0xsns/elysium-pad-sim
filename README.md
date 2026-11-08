@@ -1,111 +1,114 @@
-# Elysium Pad Sim
+# Elysium Rug Cockpit
 
-Paper-trading simulator for the three busiest launchpads on **Elysium** (Kinetiq's L2 for Hyperliquid, chain `99901`).
+Live scanner for every launchpad on **Elysium** (Kinetiq's L2 for Hyperliquid, chain `99901`).
 
-**$10 bankroll. Real pool prices. Zero wallets.**
+It reads the open ElyScreener API directly from the browser, scores each new coin for rug risk
+**from raw on-chain data**, and produces a shortlist of fresh launches that clear every filter — so you can
+buy manually.
+
+**It holds no keys, signs nothing, and cannot trade.** It is an analysis panel, not a bot.
 
 Live: https://elysium-pad-sim.vercel.app
 
 ---
 
-## What this actually is
+## What it actually does
 
-A **simulator**, not a trading bot. It cannot sign a transaction, it holds no keys, and there is no code path that
-broadcasts anything. It replays real historical prices against a trading strategy so you can see how the strategy would
-have performed before you risk money.
+Every 60 seconds (auto, pausable):
 
-If you want a real bot, this repo is the wrong thing — see [Reference bots](#reference-bots) for the projects that do
-sign transactions, and read their license and risk disclaimers first.
+1. Pulls the token index (`ely_tokens`) — ~500 coins, ordered by creation.
+2. Keeps only **fresh launches**: age between **5 minutes and 4 hours** with real traction.
+3. Deep-scans the top N by volume. For each one it fetches:
+   - `ely_balances` — holder balances (top 120)
+   - `rpc/ely_clusters` — cluster/funder grouping = **bundle detection**
+   - `rpc/es_dev_of` — which wallet deployed it, whether the dev sold
+   - `ely_trades` — recent prints, used for the price chart and buy/sell flow
+4. Computes its **own** safety score and rejects anything that trips a fatal rule.
 
----
-
-## The three pads
-
-Ranked by 24h volume on ElyScreener, 2026-11-09:
-
-| Pad | 24h volume | Trades | Holders | Alive after 24h | Creator sold |
-|---|---|---|---|---|---|
-| **Montra** | $5.94M | 48,300 | 9,163 | 3% | 3% |
-| **Ascend** | $5.35M | 32,200 | 7,436 | 12% | 16% |
-| **Volta** | $2.11M | 12,000 | 2,507 | 3% | 7% |
-
-"A live after 24h" is the number that matters: on Montra **97 of every 100 new coins are dead within a day**. Median
-holders per new coin on Montra is **1**. Any strategy that buys a random new coin is fighting that base rate.
-
-Kleos ($737k/day), BOXA, ElysPump and Obol all trade real volume too, but ElyScreener does not publish a token→pad
-mapping for them, so attributing their tokens would have meant guessing. They are left out on purpose.
+Nothing is copied from a third-party score, and a metric that cannot be computed is rendered `-` rather than
+guessed.
 
 ---
 
-## How the simulation works
+## The filters
 
-**Data**
-- Universe: 9 tokens, three per pad, each attributed to its launchpad via `elyscreener.com/coin/<address>`.
-- Prices: 5-minute OHLCV from GeckoTerminal for each token's real Uniswap v4 pool on Elysium, captured 2026-11-09.
-- 30 to 1,000 bars per token, back to 2026-11-03.
+| Rule | Threshold | Why |
+|---|---|---|
+| age | ≥ 5 min, ≤ 4 h | "new launch", not a 12-day-old coin |
+| holders | ≥ 25 | real distribution, not 3 wallets |
+| top10 excluding pool | ≤ 45% | a few wallets cannot dump on you |
+| largest holder excluding pool | ≤ 20% | no single whale owns the coin |
+| bundle (cluster supply) | ≤ 10% | no coordinated sniper bundle |
+| dev sold | never | the person who deployed it is still in |
+| dev holding | ≤ 8% | dev can't nuke the chart |
+| liquidity | ≥ $2.5K | you can actually exit |
+| buyers | ≥ 15 | there is demand, not just one wallet |
 
-**Engine** (`src/lib/sim.js`)
-- Entry: bar closes more than 2% above the previous close, and the seeded RNG passes a 35% gate.
-- Exit, whichever hits first: take-profit, stop-loss, trailing stop off the running peak, or a time stop.
-- Costs: 1% round-trip fee (`feeBps`) plus $0.0035 gas per fill, charged on both legs.
-- Determinism: `mulberry32(seed + barCount)` drives entry selection. Same seed and config always reproduce the same
-  trades — change the seed to see the variance.
+A **fatal** failure removes the coin from recommendations no matter how good the score is. **Non-fatal**
+notes are shown on the card (`LOLOS · 2 catatan`) so you can see the trade-off instead of a false all-clear.
 
-**What is deliberately not modelled**
-- Slippage and MEV. Fills happen at the bar close.
-- Pool depth. A $1.11 position cannot move a pool; a $1,000 position on a $8.5k-liquidity pool absolutely can.
-- Failed transactions, reorgs, and the chain simply being down.
+### Two metrics worth understanding
 
-On a $10 bankroll those omissions are second-order. The panel says so rather than hiding it.
+**The LP pool wallet is excluded from holder math.** `0xe2e1...` shows up as holder #1 on most coins because it
+holds the pool's token side — 82% of VEYRA's supply. Counting it would mark every coin as "82% concentrated".
+It is filtered out before concentration is computed.
+
+**Liquidity is an estimate.** The API exposes no pool reserves, so `liq est` = share of supply held by the pool
+× market cap. It is directionally right (thin vs deep) and labelled `*` everywhere it appears.
 
 ---
 
-## Run it
+## Why there is no trading bot
+
+Every pool on Elysium is **Uniswap v4**. A swap needs a registered router that encodes the `PoolKey`
+(`currency0`, `currency1`, `fee`, `tickSpacing`, `hooks`) plus `Actions`/`Params`. On chain `99901` these are
+not deployed:
+
+```
+SwapRouter02    -> 0x
+UniversalRouter -> 0x
+V3 Factory      -> 0x
+V4 PoolManager  -> 0x
+Permit2         -> deployed
+WHYPE           -> deployed
+```
+
+With no router there is no public swap path, so a "signing bot" would produce 100% failed transactions.
+That is why this repo ships an analysis panel instead of a fake executor.
+
+---
+
+## Running it
 
 ```bash
 npm install
-npm run dev        # panel at http://localhost:3000
-npm run build      # production build
-npm run sim        # CLI: prints the full trade sheet
+npm run dev          # http://localhost:3000
+npm run build        # production build
 ```
 
-## Refresh the data
+CORS on the ElyScreener API is `access-control-allow-origin: *`, so no backend proxy is needed.
+To inspect the scanner from the CLI:
 
 ```bash
-node scripts/fetch-data.mjs   # re-pulls OHLCV + pad attribution
-node scripts/run-sim.mjs      # replays the strategy on the fresh data
+node scripts/test-scan.mjs
 ```
 
-The shipped `src/lib/data.json` is a snapshot. Token prices move; re-run these before trusting any number on screen.
+---
+
+## Stack
+
+- Next.js App Router, React client components, Tailwind
+- Custom SVG for the price chart, bubble map, and score rings — no chart library
+- ElyScreener REST as the only data source
+
+Muted text is `#94aab8` on `#05070a` (8.4:1 contrast, WCAG AAA) because the original grey was unreadable on
+OLED screens.
 
 ---
 
-## Reference bots
+## Honest limits
 
-These informed the structure. None of their code is vendored here.
-
-- [chainstacklabs/pumpfun-bonkfun-bot](https://github.com/chainstacklabs/pumpfun-bonkfun-bot) — Python, ~1.0k stars.
-  The per-strategy config object and TP/SL loop.
-- [Now-Or-Neverr/BNB-Sniper-Bot-Fourmeme-TS](https://github.com/Now-Or-Neverr/BNB-Sniper-Bot-Fourmeme-TS) —
-  TypeScript. Smallest clean split of wallet / contract / monitor / bot.
-- [0xhamssog/pons-sniper-bot](https://github.com/0xhamssog/pons-sniper-bot) — TypeScript, Robinhood Chain. Bonding-curve
-  quoting before a pool exists.
-
-What changed for Elysium: pads there launch **straight into Uniswap v4 pools**, so there is no bonding-curve phase to
-snipe and no factory event to listen for. That removes most of what those bots exist to do, which is why this is a
-replay engine instead of a sniper.
-
----
-
-## Warnings, stated plainly
-
-- **Paper only.** No wallet, no keys, no signing. The page cannot move funds.
-- **Past prices, not future prices.** A strategy that made +83% on last week's candles has no obligation to do it again.
-- **Thin liquidity.** Total Elysium liquidity across tracked pools was ~$776k. Positions larger than ~2% of a pool's
-  liquidity will move the price against you.
-- **Not financial advice.** The base rate on these pads is brutal and the panel is built to show that, not to sell you a
-  strategy.
-
-## License
-
-MIT.
+- **A coin on this list can still rug.** These filters remove the obvious patterns, not every scam.
+- **Rate limits are real.** The panel scans ~10 coins per cycle; raising scan depth slows the cycle.
+- **No slippage, MEV, or exit-liquidity modelling.** Liq is an estimate.
+- **Not financial advice.** Size positions so zero is survivable.

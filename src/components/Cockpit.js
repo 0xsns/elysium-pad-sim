@@ -507,7 +507,7 @@ function DetailPanel({ row, detail, loading, onRefresh }) {
           <Mini label="mcap" value={fmtUsd(d.mcap)} />
           <Mini label="liq est*" value={fmtUsd(d.liquidityUsd)} sub={l.poolSharePct != null ? `${l.poolSharePct}% supply di pool` : null} />
           <Mini label="vol 24j" value={fmtUsd(d.vol24)} />
-          <Mini label="holder" value={fmtNum(d.holders)} sub={`sample ${l.sampled ?? "-"}`} />
+          <Mini label="holder" value={fmtNum(d.holders)} sub={`${l.sampled ?? "-"} wallet di-sample`} />
           <Mini label="24j" value={fmtPct(d.chg24)} accent={tone(d.chg24)} />
         </div>
       </section>
