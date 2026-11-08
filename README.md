@@ -53,6 +53,12 @@ notes are shown on the card (`LOLOS · 2 catatan`) so you can see the trade-off 
 holds the pool's token side — 82% of VEYRA's supply. Counting it would mark every coin as "82% concentrated".
 It is filtered out before concentration is computed.
 
+**`cluster_supply_pct` is a trap.** The cluster endpoint returns the sentinel `1e-25` for the overwhelming
+majority of coins — including coins whose `top10_pct` is 89-100%. Coercing that to `0` and reading it as
+"0% bundled" made the bundle rule pass on absent data for ~95% of fresh launches. **Values at or below `1e-6`
+are now treated as UNKNOWN**, rendered `?`, and marked `bundle n/a` on the card. A coin with no bundle data is
+not a safe coin; it is an unverified one, and the UI says so.
+
 **Liquidity is an estimate.** The API exposes no pool reserves, so `liq est` = share of supply held by the pool
 × market cap. It is directionally right (thin vs deep) and labelled `*` everywhere it appears.
 
