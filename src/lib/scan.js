@@ -57,10 +57,13 @@ export function shapeToken(t, hypeUsd) {
 export async function deepScan(token, { withBalances = true, withTrades = true } = {}) {
   const out = { ...token };
 
-  const [safety, clusters, dev, trades] = await Promise.all([
+  // `es_dev_of` is the slowest endpoint on the indexer (measured 3.3-3.7s per coin, and it
+  // 500s often), so it is NOT in the critical path. The dev address comes from the token
+  // row itself (`creator`), and "did the dev sell" is recoverable from the trade rows we
+  // already fetch - both free. es_dev_of is only a fallback when those are missing.
+  const [safety, clusters, trades] = await Promise.all([
     api.safetyOne(token.addr),
     api.clusters(token.addr),
-    api.devOf(token.addr),
     withTrades ? api.trades(token.addr, 120) : Promise.resolve([]),
   ]);
 
@@ -87,17 +90,39 @@ export async function deepScan(token, { withBalances = true, withTrades = true }
     };
   }
 
-  const d = Array.isArray(dev) ? dev[0] : dev;
-  if (d) {
-    out.dev = {
-      creator: d.creator,
-      holdingPct: num(d.holding_pct),
-      soldHype: num(d.sold_hype),
-      sells: num(d.sells),
-      lastSell: d.last_sell || null,
-    };
-    if (out.devPct == null) out.devPct = out.dev.holdingPct;
-    if (out.devSold == null) out.devSold = (num(d.sells) || 0) > 0;
+  // The deploying wallet is already on the token row. Free, instant, always available.
+  const creator = token.creator ? String(token.creator).toLowerCase() : null;
+  out.dev = creator ? { creator, holdingPct: null, soldHype: null, sells: null, lastSell: null } : null;
+
+  // Did the dev sell? Look for the creator in the trade rows we already have.
+  if (creator && Array.isArray(trades) && trades.length) {
+    const devSells = trades.filter(
+      (t) => t.side === "sell" && String(t.trader).toLowerCase() === creator,
+    );
+    out.dev.sells = devSells.length;
+    out.devSold = devSells.length > 0;
+    if (devSells.length) out.dev.lastSell = devSells[0].at || null;
+  }
+
+  // Only pay for the slow endpoint when we still cannot answer the question.
+  if (creator == null || out.devSold == null) {
+    try {
+      const dev = await api.devOf(token.addr);
+      const d = Array.isArray(dev) ? dev[0] : dev;
+      if (d) {
+        out.dev = {
+          creator: d.creator || creator,
+          holdingPct: num(d.holding_pct),
+          soldHype: num(d.sold_hype),
+          sells: num(d.sells),
+          lastSell: d.last_sell || null,
+        };
+        if (out.devPct == null) out.devPct = out.dev.holdingPct;
+        if (out.devSold == null) out.devSold = (num(d.sells) || 0) > 0;
+      }
+    } catch {
+      // leave devSold null; the checklist renders it as "?" rather than a fake pass
+    }
   }
 
   if (Array.isArray(trades) && trades.length) {

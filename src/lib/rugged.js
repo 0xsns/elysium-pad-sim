@@ -14,7 +14,6 @@ export const RULES = {
   maxTop10ExPool: 45,
   maxTop1ExPool: 20,
   maxClusterSupplyPct: 10, // supply held by same-block bundle clusters
-  maxClusterWallets: 900, // wallet count alone is not a rug signal on a busy chain
   maxDevPct: 8,
   minSafetyScore: 80,
   minLiquidityUsd: 2500,

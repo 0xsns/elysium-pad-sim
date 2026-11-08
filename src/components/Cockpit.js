@@ -385,8 +385,8 @@ function PicksTable({ rows, onSelect, sel, ageTick, showReason, prices }) {
       <div className="rounded-lg border hair bg-panel/40 p-6 text-center">
         <div className="text-[12px] text-white">Belum ada coin yang lolos</div>
         <p className="mx-auto mt-1 max-w-sm text-[10px] leading-relaxed text-dim">
-          Itu hasil yang jujur, bukan error. Mayoritas launch baru gagal di distribusi holder atau bundle. Panel terus
-          scan tiap menit; kalau ada yang lolos, muncul di sini otomatis.
+          Itu hasil yang jujur, bukan error. Mayoritas launch baru gagal di distribusi holder atau bundle. Panel scan
+          tiap 15 detik; kalau ada yang lolos, muncul di sini otomatis.
         </p>
       </div>
     );
